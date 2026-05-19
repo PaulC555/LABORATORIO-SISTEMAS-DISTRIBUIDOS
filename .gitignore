@@ -1,1 +1,3 @@
 *.class
+env/
+__pycache__/

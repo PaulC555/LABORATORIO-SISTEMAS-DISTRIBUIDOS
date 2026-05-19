@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+package converter;
+
+enum ConversionType {
+  CELSIUS_TO_FAHRENHEIT = 0;
+  FAHRENHEIT_TO_CELSIUS = 1;
+  SOLES_TO_DOLARES = 2;
+  DOLARES_TO_SOLES = 3;
+  KILOMETROS_TO_MILLAS = 4;
+  MILLAS_TO_KILOMETROS = 5;
+}
+
+message ConvertRequest {
+  ConversionType type = 1;
+  double value = 2;
+}
+
+message ConvertResponse {
+  double result = 1;
+  string unit_from = 2;
+  string unit_to = 3;
+  string formula = 4;
+  bool success = 5;
+  string error_message = 6;
+}
+
+message HealthRequest {}
+message HealthResponse {
+  string status = 1;
+  string server_info = 2;
+}
+
+service Converter {
+  rpc Convert (ConvertRequest) returns (ConvertResponse);
+  rpc HealthCheck (HealthRequest) returns (HealthResponse);
+}
