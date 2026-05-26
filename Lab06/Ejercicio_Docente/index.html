@@ -1,20 +1,94 @@
 <!DOCTYPE html>
 <html>
 
+<head>
+  <title>Gestión de Productos</title>
+  <style>
+    body {
+      font-family: Arial;
+      margin: 20px;
+    }
+
+    .producto {
+      margin: 5px 0;
+    }
+
+    button {
+      margin-left: 10px;
+    }
+
+    input {
+      margin: 5px;
+    }
+  </style>
+</head>
+
 <body>
-  <h2>Lista Productos</h2>
-  <button onclick="listar()">Consultar</button>
+  <h2>Productos</h2>
+  <button onclick="listar()">Actualizar lista</button>
   <ul id="lista"></ul>
+
+  <h3>Agregar nuevo producto</h3>
+  <input type="text" id="nombreProducto" placeholder="Nombre del producto">
+  <button onclick="agregar()">Agregar</button>
+
+  <h3>Eliminar producto por ID</h3>
+  <input type="number" id="idEliminar" placeholder="ID del producto">
+  <button onclick="eliminar()">Eliminar</button>
+
   <script>
+    const API_URL = "http://127.0.0.1:5000/productos";
+
     async function listar() {
-      let r = await fetch("http://127.0.0.1:5000/productos");
-      let datos = await r.json();
-      let lista = document.getElementById("lista");
+      const r = await fetch(API_URL);
+      const datos = await r.json();
+      const lista = document.getElementById("lista");
       lista.innerHTML = "";
       datos.forEach(p => {
-        lista.innerHTML += `<li>${p.nombre}</li>`;
+        lista.innerHTML += `<li class="producto">ID: ${p.id} - ${p.nombre}</li>`;
       });
     }
+
+    async function agregar() {
+      const nombre = document.getElementById("nombreProducto").value.trim();
+      if (!nombre) {
+        alert("Escribe un nombre");
+        return;
+      }
+      const response = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nombre: nombre })
+      });
+      const resultado = await response.json();
+      if (response.ok) {
+        alert(`${resultado.mensaje} (ID: ${resultado.producto.id})`);
+        document.getElementById("nombreProducto").value = "";
+        listar();  // refresca la lista
+      } else {
+        alert(`Error: ${resultado.error}`);
+      }
+    }
+
+    async function eliminar() {
+      const id = document.getElementById("idEliminar").value;
+      if (!id) {
+        alert("Ingresa un ID");
+        return;
+      }
+      const response = await fetch(`${API_URL}/${id}`, { method: "DELETE" });
+      const resultado = await response.json();
+      if (response.ok) {
+        alert(`${resultado.mensaje}`);
+        document.getElementById("idEliminar").value = "";
+        listar();  // refresca la lista
+      } else {
+        alert(`Error: ${resultado.error}`);
+      }
+    }
+
+    // Cargar lista al iniciar
+    listar();
   </script>
 </body>
 
