@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Cliente SOAP funcional (con proxy CORS)</title>
+  <style>
+    body {
+      font-family: Arial;
+      margin: 20px;
+      background: #f0f2f5;
+    }
+
+    .container {
+      max-width: 500px;
+      margin: auto;
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+
+    input,
+    button {
+      padding: 10px;
+      margin: 5px;
+      font-size: 16px;
+    }
+
+    button {
+      background: #007bff;
+      color: white;
+      border: none;
+      cursor: pointer;
+      border-radius: 5px;
+    }
+
+    button:hover {
+      background: #0056b3;
+    }
+
+    .resultado {
+      margin-top: 20px;
+      border-top: 1px solid #ccc;
+      padding: 10px;
+      background: #e9ecef;
+      border-radius: 5px;
+    }
+
+    .error {
+      color: red;
+    }
+
+    .explicacion {
+      background: #fff3cd;
+      border-left: 5px solid #ffc107;
+      padding: 10px;
+      margin-top: 20px;
+      font-size: 0.9em;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h2>Consumo de Web Service SOAP desde navegador</h2>
+    <p>Servicio: <strong>Calculadora SOAP (dneonline.com)</strong><br>
+      Operación: <strong>Add</strong> (suma de enteros)</p>
+
+    <label>Primer número (entero):</label>
+    <input type="number" id="a" value="5">
+    <label>Segundo número:</label>
+    <input type="number" id="b" value="8">
+    <button onclick="llamarSOAP()">Sumar vía SOAP</button>
+
+    <div id="resultado" class="resultado"></div>
+
+    <!-- 
+    Motivo:
+    ¿Por qué ahora funciona?
+    Se utiliza proxy_cors que evita el bloqueo de origen cruzado.
+    El navegador llama al proxy, y el proxy llama al servicio SOAP real. La respuesta vuelve sin restricciones CORS.
+    Limitación: El HTML debe servirse desde un servidor web.
+    -->
+  </div>
+
+  <script>
+    async function llamarSOAP() {
+      const a = parseInt(document.getElementById('a').value, 10);
+      const b = parseInt(document.getElementById('b').value, 10);
+      const resultadoDiv = document.getElementById('resultado');
+      resultadoDiv.innerHTML = "Enviando petición SOAP...";
+
+      if (isNaN(a) || isNaN(b)) {
+        resultadoDiv.innerHTML = '<span class="error">Ingresa números enteros válidos.</span>';
+        return;
+      }
+
+      // Construcción del sobre SOAP (XML)
+      const soapEnvelope = `<?xml version="1.0" encoding="utf-8"?>
+            <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+                <soap:Body>
+                    <Add xmlns="http://tempuri.org/">
+                        <intA>${a}</intA>
+                        <intB>${b}</intB>
+                    </Add>
+                </soap:Body>
+            </soap:Envelope>`;
+
+      // URL del servicio real
+      const servicioURL = 'http://www.dneonline.com/calculator.asmx';
+      // Proxy CORS público
+      const proxyURL = 'http://localhost:8080/';
+      const urlConProxy = proxyURL + servicioURL;
+
+      try {
+        const response = await fetch(urlConProxy, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'text/xml; charset=utf-8',
+            'SOAPAction': 'http://tempuri.org/Add'
+          },
+          body: soapEnvelope
+        });
+
+        if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+
+        const text = await response.text();
+        // Parsear respuesta XML
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(text, 'text/xml');
+        const addResult = xmlDoc.getElementsByTagName('AddResult')[0];
+
+        if (addResult) {
+          resultadoDiv.innerHTML = `<strong>Resultado:</strong> ${a} + ${b} = ${addResult.textContent}`;
+        } else {
+          // Intento con otro namespace (por si acaso)
+          const fallback = xmlDoc.getElementsByTagNameNS('http://tempuri.org/', 'AddResult');
+          if (fallback.length > 0) {
+            resultadoDiv.innerHTML = `<strong>Resultado:</strong> ${a} + ${b} = ${fallback[0].textContent}`;
+          } else {
+            resultadoDiv.innerHTML = `<span class="error">No se encontró 'AddResult' en la respuesta. Revisa consola.</span>`;
+            console.error('Respuesta XML:', text);
+          }
+        }
+      } catch (error) {
+        resultadoDiv.innerHTML = `<span class="error">Error: ${error.message}<br>
+            <strong>Posible causa:</strong> El proxy CORS puede estar temporalmente saturado. Intenta más tarde o levanta un proxy local.</span>`;
+        console.error(error);
+      }
+    }
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Cliente SOAP desde navegador</title>
+  <style>
+    body {
+      font-family: Arial;
+      margin: 20px;
+    }
+
+    button {
+      margin: 5px;
+      padding: 8px 16px;
+    }
+
+    input {
+      margin: 5px;
+      padding: 8px;
+      width: 100px;
+    }
+
+    .resultado {
+      margin-top: 20px;
+      border: 1px solid #ccc;
+      padding: 10px;
+      background: #f9f9f9;
+    }
+
+    .error {
+      color: red;
+    }
+  </style>
+</head>
+
+<body>
+  <h2>Consumo directo de Web Service SOAP desde el navegador</h2>
+  <p>Operación: <strong>Add</strong> (suma de dos enteros)</p>
+
+  <input type="number" id="a" placeholder="Número 1" value="5">
+  <input type="number" id="b" placeholder="Número 2" value="8">
+  <button onclick="llamarSOAP()">Sumar vía SOAP</button>
+
+  <div id="resultado" class="resultado"></div>
+
+  <script>
+    async function llamarSOAP() {
+      const a = document.getElementById('a').value;
+      const b = document.getElementById('b').value;
+      const resultadoDiv = document.getElementById('resultado');
+      resultadoDiv.innerHTML = "Cargando...";
+
+      // Construir el sobre SOAP manualmente en XML
+      const soapEnvelope = `<?xml version="1.0" encoding="utf-8"?>
+                <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+                    <soap:Body>
+                        <Add xmlns="http://tempuri.org/">
+                            <intA>${a}</intA>
+                            <intB>${b}</intB>
+                        </Add>
+                    </soap:Body>
+                </soap:Envelope>`;
+
+      try {
+        const response = await fetch('http://www.dneonline.com/calculator.asmx', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'text/xml; charset=utf-8',
+            'SOAPAction': 'http://tempuri.org/Add'
+          },
+          body: soapEnvelope
+        });
+
+        if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+        const text = await response.text();
+
+        // Extraer el resultado de la respuesta XML
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(text, 'text/xml');
+        const addResult = xmlDoc.getElementsByTagName('AddResult')[0];
+
+        if (addResult) {
+          resultadoDiv.innerHTML = `<strong>Resultado:</strong> ${addResult.textContent}`;
+        } else {
+          resultadoDiv.innerHTML = `<span class="error">Respuesta SOAP inesperada. Ver consola.</span>`;
+          console.error(text);
+        }
+      } catch (error) {
+        resultadoDiv.innerHTML = `<span class="error">Error: ${error.message}.<br>
+                <strong>Nota:</strong> Error CORS.</span>`;
+        console.error(error);
+      }
+    }
+  </script>
+</body>
+
+</html>
