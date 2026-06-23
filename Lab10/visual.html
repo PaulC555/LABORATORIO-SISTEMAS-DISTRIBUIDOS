@@ -1,0 +1,1663 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <title>FedEx Perú – Simulador de Replicación Distribuida</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+        :root {
+            --fedex-purple: #4D148C;
+            --fedex-orange: #FF6600;
+            --bg-dark: #0F172A;
+            --emerald: #10B981;
+            --gold: #F59E0B;
+            --red: #EF4444;
+            --blue: #60A5FA;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-dark);
+            color: #E2E8F0;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image: linear-gradient(rgba(77, 20, 140, .04) 1px, transparent 1px), linear-gradient(90deg, rgba(77, 20, 140, .04) 1px, transparent 1px);
+            background-size: 40px 40px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .glass {
+            background: rgba(15, 23, 42, .78);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, .07);
+        }
+
+        .kpi-card {
+            background: rgba(15, 23, 42, .82);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, .08);
+            border-radius: 12px;
+            transition: border-color .3s, box-shadow .3s;
+        }
+
+        .kpi-card:hover {
+            border-color: rgba(77, 20, 140, .5);
+            box-shadow: 0 0 20px rgba(77, 20, 140, .2);
+        }
+
+        /* ---- NODE CARDS ---- */
+        .node-card {
+            background: rgba(10, 18, 36, .93);
+            backdrop-filter: blur(12px);
+            border-radius: 10px;
+            border: 1.5px solid rgba(255, 255, 255, .1);
+            transition: all .4s ease;
+            position: absolute;
+            width: 148px;
+            text-align: center;
+            padding: 9px 7px;
+        }
+
+        .node-card.master {
+            border-color: #4D148C;
+            box-shadow: 0 0 22px rgba(77, 20, 140, .45);
+        }
+
+        .node-card.leader {
+            border-color: var(--gold);
+            box-shadow: 0 0 28px rgba(245, 158, 11, .5);
+        }
+
+        .node-card.offline {
+            border-color: var(--red);
+            box-shadow: 0 0 20px rgba(239, 68, 68, .4);
+            animation: flash-red 1s ease-in-out infinite;
+        }
+
+        .node-card.secondary {
+            border-color: rgba(16, 185, 129, .28);
+        }
+
+        @keyframes flash-red {
+
+            0%,
+            100% {
+                box-shadow: 0 0 15px rgba(239, 68, 68, .4);
+            }
+
+            50% {
+                box-shadow: 0 0 38px rgba(239, 68, 68, .8);
+                border-color: #FF5050;
+            }
+        }
+
+        /* ---- STATUS LABELS ---- */
+        .nsl {
+            font-size: .58rem;
+            font-weight: 700;
+            letter-spacing: .1em;
+            text-transform: uppercase;
+            padding: 2px 6px;
+            border-radius: 10px;
+            display: inline-block;
+        }
+
+        .nsl-online {
+            background: rgba(16, 185, 129, .15);
+            color: var(--emerald);
+            border: 1px solid rgba(16, 185, 129, .3);
+        }
+
+        .nsl-offline {
+            background: rgba(239, 68, 68, .15);
+            color: var(--red);
+            border: 1px solid rgba(239, 68, 68, .3);
+        }
+
+        .nsl-leader {
+            background: rgba(245, 158, 11, .15);
+            color: var(--gold);
+            border: 1px solid rgba(245, 158, 11, .4);
+        }
+
+        .node-metric {
+            font-size: .62rem;
+            color: #64748B;
+            margin-top: 2px;
+        }
+
+        /* ---- BUTTONS ---- */
+        .btn-emergency {
+            background: linear-gradient(135deg, #7F1D1D, #991B1B, #DC2626);
+            border: 1.5px solid #EF4444;
+            color: #fff;
+            border-radius: 10px;
+            padding: 13px 20px;
+            font-weight: 700;
+            font-size: .82rem;
+            letter-spacing: .04em;
+            cursor: pointer;
+            transition: all .2s;
+            box-shadow: 0 0 20px rgba(239, 68, 68, .3);
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+        }
+
+        .btn-emergency:hover {
+            box-shadow: 0 0 36px rgba(239, 68, 68, .55);
+            transform: translateY(-1px);
+        }
+
+        .btn-emergency:disabled {
+            opacity: .4;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-reset {
+            background: rgba(16, 185, 129, .14);
+            border: 1.5px solid rgba(16, 185, 129, .38);
+            color: var(--emerald);
+            border-radius: 10px;
+            padding: 11px 20px;
+            font-weight: 600;
+            font-size: .82rem;
+            cursor: pointer;
+            transition: all .2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+        }
+
+        .btn-reset:hover {
+            background: rgba(16, 185, 129, .24);
+            box-shadow: 0 0 14px rgba(16, 185, 129, .25);
+        }
+
+        .btn-reset:disabled {
+            opacity: .4;
+            cursor: not-allowed;
+        }
+
+        .btn-sm {
+            background: rgba(77, 20, 140, .2);
+            border: 1px solid rgba(77, 20, 140, .4);
+            color: #C4B5FD;
+            border-radius: 8px;
+            padding: 7px 13px;
+            font-size: .78rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all .2s;
+        }
+
+        .btn-sm:hover {
+            background: rgba(77, 20, 140, .35);
+        }
+
+        /* ---- NODE SELECTOR ---- */
+        .sel-btn {
+            background: rgba(15, 23, 42, .75);
+            border: 1.5px solid rgba(255, 255, 255, .1);
+            border-radius: 8px;
+            padding: 8px 6px;
+            cursor: pointer;
+            transition: all .2s;
+            text-align: center;
+            width: 100%;
+        }
+
+        .sel-btn:hover:not(:disabled):not(.offline-btn) {
+            border-color: rgba(239, 68, 68, .5);
+            background: rgba(239, 68, 68, .08);
+        }
+
+        .sel-btn.selected {
+            border-color: #EF4444;
+            background: rgba(239, 68, 68, .12);
+            box-shadow: 0 0 12px rgba(239, 68, 68, .2);
+        }
+
+        .sel-btn.offline-btn {
+            opacity: .38;
+            cursor: not-allowed;
+            border-color: rgba(100, 116, 139, .3);
+        }
+
+        .sel-btn:disabled {
+            opacity: .38;
+            cursor: not-allowed;
+        }
+
+        /* ---- TOGGLE ---- */
+        .toggle-sw {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 26px;
+        }
+
+        .toggle-sw input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .t-slider {
+            position: absolute;
+            cursor: pointer;
+            inset: 0;
+            background: rgba(77, 20, 140, .35);
+            border: 1px solid rgba(77, 20, 140, .6);
+            border-radius: 26px;
+            transition: .3s;
+        }
+
+        .t-slider:before {
+            position: absolute;
+            content: '';
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background: #818CF8;
+            border-radius: 50%;
+            transition: .3s;
+        }
+
+        input:checked+.t-slider {
+            background: rgba(16, 185, 129, .3);
+            border-color: var(--emerald);
+        }
+
+        input:checked+.t-slider:before {
+            transform: translateX(24px);
+            background: var(--emerald);
+        }
+
+        /* ---- ALERTS ---- */
+        .alert-banner {
+            display: none;
+            border-radius: 10px;
+            padding: 13px 16px;
+            font-size: .82rem;
+            font-weight: 500;
+            border-left: 4px solid;
+            animation: slide-in .4s ease;
+        }
+
+        .alert-banner.show {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+
+        .alert-warning {
+            background: rgba(245, 158, 11, .11);
+            border-color: var(--gold);
+            color: #FDE68A;
+        }
+
+        .alert-info {
+            background: rgba(16, 185, 129, .11);
+            border-color: var(--emerald);
+            color: #6EE7B7;
+        }
+
+        @keyframes slide-in {
+            from {
+                opacity: 0;
+                transform: translateY(-6px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* ---- STATUS BADGE ---- */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: .72rem;
+            font-weight: 700;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+        }
+
+        .badge-healthy {
+            background: rgba(16, 185, 129, .15);
+            border: 1px solid rgba(16, 185, 129, .4);
+            color: var(--emerald);
+        }
+
+        .badge-degraded {
+            background: rgba(245, 158, 11, .15);
+            border: 1px solid rgba(245, 158, 11, .4);
+            color: var(--gold);
+        }
+
+        .badge-critical {
+            background: rgba(239, 68, 68, .15);
+            border: 1px solid rgba(239, 68, 68, .4);
+            color: var(--red);
+        }
+
+        .bdot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .badge-healthy .bdot {
+            background: var(--emerald);
+        }
+
+        .badge-degraded .bdot {
+            background: var(--gold);
+        }
+
+        .badge-critical .bdot {
+            background: var(--red);
+        }
+
+        .bdot.pulse {
+            animation: badgepulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes badgepulse {
+
+            0%,
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: .35;
+                transform: scale(.65);
+            }
+        }
+
+        /* ---- METRIC VALUES ---- */
+        .mval {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.55rem;
+            font-weight: 700;
+            line-height: 1;
+            transition: color .5s;
+        }
+
+        .section-label {
+            font-size: .62rem;
+            font-weight: 700;
+            letter-spacing: .14em;
+            text-transform: uppercase;
+            color: #4D148C;
+            margin-bottom: 7px;
+        }
+
+        .header-glow {
+            background: linear-gradient(180deg, rgba(77, 20, 140, .22) 0%, transparent 100%);
+            border-bottom: 1px solid rgba(77, 20, 140, .28);
+        }
+
+        .accent-bar {
+            height: 3px;
+            width: 56px;
+            background: linear-gradient(90deg, #FF6600, transparent);
+            margin-top: 5px;
+            border-radius: 2px;
+        }
+
+        /* ---- CONSOLE ---- */
+        .console-log {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: .73rem;
+            line-height: 1.7;
+            color: #94A3B8;
+            overflow-y: auto;
+            max-height: 190px;
+            padding: 10px 14px;
+        }
+
+        .console-log::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .console-log::-webkit-scrollbar-thumb {
+            background: rgba(77, 20, 140, .4);
+            border-radius: 4px;
+        }
+
+        .log-info {
+            color: #60A5FA;
+        }
+
+        .log-warn {
+            color: #FBBF24;
+        }
+
+        .log-error {
+            color: #F87171;
+        }
+
+        .log-success {
+            color: var(--emerald);
+        }
+
+        /* ---- SVG container (aspect-ratio trick) ---- */
+        .map-wrap {
+            position: relative;
+            width: 100%;
+            padding-top: 55.26%;
+            /* 420/760 */
+        }
+
+        .map-wrap svg,
+        .map-wrap .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .overlay {
+            pointer-events: none;
+        }
+
+        /* ---- FAILOVER OVERLAY ---- */
+        .fo-overlay {
+            display: none;
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, .55);
+            backdrop-filter: blur(4px);
+            border-radius: 16px;
+            z-index: 50;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .fo-overlay.show {
+            display: flex;
+        }
+
+        .spinner {
+            width: 38px;
+            height: 38px;
+            border: 3px solid rgba(245, 158, 11, .2);
+            border-top-color: var(--gold);
+            border-radius: 50%;
+            animation: spin .8s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* ---- SVG animated dash ---- */
+        .conn-active {
+            animation: dash-move 1.4s linear infinite;
+        }
+
+        @keyframes dash-move {
+            to {
+                stroke-dashoffset: -20;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- HEADER -->
+    <header class="header-glow relative z-10 px-7 py-4 flex items-center justify-between">
+        <div class="flex items-center gap-4">
+            <div class="flex items-center">
+                <span style="color:#4D148C;font-size:1.65rem;font-weight:800;letter-spacing:-.02em">Fed</span>
+                <span style="color:#FF6600;font-size:1.65rem;font-weight:800;letter-spacing:-.02em">Ex</span>
+                <span style="color:#94A3B8;font-size:.9rem;font-weight:400;margin-left:8px">Perú</span>
+            </div>
+            <div style="height:28px;width:1px;background:#1E293B"></div>
+            <div>
+                <div style="font-size:.78rem;font-weight:600;color:#E2E8F0;line-height:1.2">Sistema de Simulación de
+                    Replicación Distribuida</div>
+                <div class="accent-bar"></div>
+            </div>
+        </div>
+        <div class="flex items-center gap-6">
+            <div class="text-right">
+                <div
+                    style="font-size:.62rem;color:#475569;font-weight:600;letter-spacing:.1em;text-transform:uppercase">
+                    Estado Global</div>
+                <div id="globalStatusBadge" class="status-badge badge-healthy mt-1">
+                    <span class="bdot pulse"></span><span id="globalStatusText">SALUDABLE</span>
+                </div>
+            </div>
+            <div class="text-right">
+                <div
+                    style="font-size:.62rem;color:#475569;font-weight:600;letter-spacing:.1em;text-transform:uppercase">
+                    Hora Sistema</div>
+                <div id="sysClock" style="font-family:'JetBrains Mono';font-size:.82rem;color:#94A3B8;margin-top:4px">
+                    --:--:--</div>
+            </div>
+        </div>
+    </header>
+
+    <main class="relative z-10 px-5 pb-5 space-y-4">
+
+        <!-- KPI ROW -->
+        <div class="grid grid-cols-4 gap-3">
+            <div class="kpi-card p-4">
+                <div class="section-label">Latencia Global</div>
+                <div class="flex items-end gap-2">
+                    <div id="kpiLatency" class="mval" style="color:#60A5FA">25</div>
+                    <div style="font-size:.72rem;color:#475569;margin-bottom:3px">ms</div>
+                </div>
+                <div style="font-size:.68rem;color:#475569;margin-top:5px">Maestro ↔ Nodos Secundarios</div>
+            </div>
+            <div class="kpi-card p-4">
+                <div class="section-label">Consistencia de Datos</div>
+                <div class="flex items-end gap-2">
+                    <div id="kpiConsistency" class="mval" style="color:#10B981">99.8</div>
+                    <div style="font-size:.72rem;color:#475569;margin-bottom:3px">%</div>
+                </div>
+                <div style="font-size:.68rem;color:#475569;margin-top:5px">Réplica multirregión en tiempo real</div>
+            </div>
+            <div class="kpi-card p-4">
+                <div class="section-label">Temperatura Perecederos</div>
+                <div class="flex items-center gap-2 mt-1">
+                    <div id="kpiTempIcon" style="color:#10B981">
+                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <div id="kpiTempText" class="mval" style="color:#10B981;font-size:1.15rem">OK</div>
+                        <div style="font-size:.68rem;color:#475569">-2°C a +4°C nominal</div>
+                    </div>
+                </div>
+            </div>
+            <div class="kpi-card p-4">
+                <div class="section-label">Nodo Maestro Activo</div>
+                <div id="kpiMaster" class="mval" style="color:#A78BFA;font-size:1.2rem;margin-top:5px">Lima</div>
+                <div style="font-size:.68rem;color:#475569;margin-top:5px">Coordinación de escrituras primaria</div>
+            </div>
+        </div>
+
+        <!-- MAIN GRID -->
+        <div class="grid gap-4" style="grid-template-columns:1fr 272px">
+
+            <!-- LEFT: MAP + ALERT -->
+            <div class="space-y-3">
+
+                <!-- Alert -->
+                <div id="alertBanner" class="alert-banner alert-warning">
+                    <div style="flex-shrink:0;margin-top:1px">
+                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5">
+                            <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+                            <line x1="12" x2="12" y1="9" y2="13" />
+                            <line x1="12" x2="12.01" y1="17" y2="17" />
+                        </svg>
+                    </div>
+                    <div id="alertText"></div>
+                </div>
+
+                <!-- MAP CARD -->
+                <div class="glass rounded-2xl p-4" style="position:relative">
+                    <div class="fo-overlay" id="failoverOverlay">
+                        <div class="spinner"></div>
+                        <div style="color:#FBBF24;font-weight:700;font-size:.87rem;letter-spacing:.06em">DETECTANDO
+                            CAÍDA...</div>
+                        <div style="color:#94A3B8;font-size:.73rem" id="foMsg">Iniciando Failover Automático</div>
+                    </div>
+
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="section-label" style="margin-bottom:0">Mapa de Red — Hubs de Distribución</div>
+                        <div id="replStratBadge" class="status-badge"
+                            style="font-size:.62rem;background:rgba(77,20,140,.2);border:1px solid rgba(77,20,140,.4);color:#C4B5FD;padding:3px 10px">
+                            ⚡ ASÍNCRONA</div>
+                    </div>
+
+                    <!-- SVG map with aspect-ratio wrapper -->
+                    <div class="map-wrap" style="border-radius:10px;overflow:hidden;background:rgba(5,10,20,.4)">
+                        <svg viewBox="0 0 760 420" xmlns="http://www.w3.org/2000/svg"
+                            preserveAspectRatio="xMidYMid meet">
+                            <defs>
+                                <filter id="glow-p">
+                                    <feGaussianBlur stdDeviation="3.5" result="b" />
+                                    <feMerge>
+                                        <feMergeNode in="b" />
+                                        <feMergeNode in="SourceGraphic" />
+                                    </feMerge>
+                                </filter>
+                                <filter id="glow-g">
+                                    <feGaussianBlur stdDeviation="4" result="b" />
+                                    <feMerge>
+                                        <feMergeNode in="b" />
+                                        <feMergeNode in="SourceGraphic" />
+                                    </feMerge>
+                                </filter>
+                                <filter id="glow-o">
+                                    <feGaussianBlur stdDeviation="4" result="b" />
+                                    <feMerge>
+                                        <feMergeNode in="b" />
+                                        <feMergeNode in="SourceGraphic" />
+                                    </feMerge>
+                                </filter>
+                            </defs>
+
+                            <!--
+              Node coordinates (cx,cy):
+              CDMX:     110,  70
+              Bogotá:   300, 110
+              Lima:     510, 230  (master — bigger ring)
+              Santiago: 400, 360
+            -->
+
+                            <!-- Background glows -->
+                            <circle id="glow-lima" cx="510" cy="230" r="42" fill="rgba(77,20,140,.12)" />
+                            <circle id="glow-bogota" cx="300" cy="110" r="30" fill="rgba(16,185,129,.07)" />
+                            <circle id="glow-santiago" cx="400" cy="360" r="28" fill="rgba(16,185,129,.07)" />
+                            <circle id="glow-cdmx" cx="110" cy=" 70" r="28" fill="rgba(16,185,129,.07)" />
+
+                            <!-- Connection lines — primary (master links) -->
+                            <line id="line-lima-bogota" x1="510" y1="230" x2="300" y2="110" stroke="rgba(77,20,140,.8)"
+                                stroke-width="2" stroke-dasharray="6 4" class="conn-active" />
+                            <line id="line-lima-santiago" x1="510" y1="230" x2="400" y2="360"
+                                stroke="rgba(77,20,140,.8)" stroke-width="2" stroke-dasharray="6 4"
+                                class="conn-active" />
+                            <line id="line-lima-cdmx" x1="510" y1="230" x2="110" y2=" 70" stroke="rgba(77,20,140,.7)"
+                                stroke-width="1.8" stroke-dasharray="6 4" class="conn-active" />
+                            <!-- Cross links -->
+                            <line id="line-bogota-santiago" x1="300" y1="110" x2="400" y2="360"
+                                stroke="rgba(96,165,250,.22)" stroke-width="1.5" stroke-dasharray="4 6" />
+                            <line id="line-bogota-cdmx" x1="300" y1="110" x2="110" y2=" 70"
+                                stroke="rgba(96,165,250,.22)" stroke-width="1.5" stroke-dasharray="4 6" />
+                            <line id="line-santiago-cdmx" x1="400" y1="360" x2="110" y2=" 70"
+                                stroke="rgba(96,165,250,.14)" stroke-width="1.2" stroke-dasharray="3 8" />
+
+                            <!-- Animated data packets -->
+                            <!-- Lima→Bogotá -->
+                            <circle id="pkt-lima-bogota" r="4" fill="#10B981" opacity="1" filter="url(#glow-g)">
+                                <animateMotion dur="2.1s" repeatCount="indefinite">
+                                    <mpath href="#path-lb" />
+                                </animateMotion>
+                            </circle>
+                            <!-- Lima→Santiago -->
+                            <circle id="pkt-lima-santiago" r="4" fill="#10B981" opacity="1" filter="url(#glow-g)">
+                                <animateMotion dur="2.7s" repeatCount="indefinite">
+                                    <mpath href="#path-ls" />
+                                </animateMotion>
+                            </circle>
+                            <!-- Lima→CDMX -->
+                            <circle id="pkt-lima-cdmx" r="4" fill="#10B981" opacity="1" filter="url(#glow-g)">
+                                <animateMotion dur="3.3s" repeatCount="indefinite">
+                                    <mpath href="#path-lc" />
+                                </animateMotion>
+                            </circle>
+                            <!-- Bogotá→Santiago -->
+                            <circle id="pkt-bogota-santiago" r="3.5" fill="#60A5FA" opacity="0" filter="url(#glow-g)">
+                                <animateMotion dur="2.4s" repeatCount="indefinite">
+                                    <mpath href="#path-bs" />
+                                </animateMotion>
+                            </circle>
+                            <!-- Bogotá→CDMX -->
+                            <circle id="pkt-bogota-cdmx" r="3.5" fill="#60A5FA" opacity="0" filter="url(#glow-g)">
+                                <animateMotion dur="1.8s" repeatCount="indefinite">
+                                    <mpath href="#path-bc" />
+                                </animateMotion>
+                            </circle>
+                            <!-- Santiago→CDMX -->
+                            <circle id="pkt-santiago-cdmx" r="3" fill="#60A5FA" opacity="0" filter="url(#glow-g)">
+                                <animateMotion dur="3.8s" repeatCount="indefinite">
+                                    <mpath href="#path-sc" />
+                                </animateMotion>
+                            </circle>
+
+                            <!-- Motion paths (hidden) -->
+                            <path id="path-lb" d="M510,230 L300,110" fill="none" stroke="none" />
+                            <path id="path-ls" d="M510,230 L400,360" fill="none" stroke="none" />
+                            <path id="path-lc" d="M510,230 L110, 70" fill="none" stroke="none" />
+                            <path id="path-bs" d="M300,110 L400,360" fill="none" stroke="none" />
+                            <path id="path-bc" d="M300,110 L110, 70" fill="none" stroke="none" />
+                            <path id="path-sc" d="M400,360 L110, 70" fill="none" stroke="none" />
+
+                            <!-- Node rings -->
+                            <!-- Lima (big, master) -->
+                            <circle id="ring-lima" cx="510" cy="230" r="24" fill="rgba(77,20,140,.28)" stroke="#4D148C"
+                                stroke-width="2.2" filter="url(#glow-p)" />
+                            <circle cx="510" cy="230" r="14" fill="rgba(77,20,140,.55)" />
+                            <text x="510" y="234" text-anchor="middle" font-size="10" font-weight="700" fill="white"
+                                font-family="Inter">LIM</text>
+                            <!-- Offline X (hidden) -->
+                            <g id="offmark-lima" style="display:none">
+                                <line x1="497" y1="217" x2="523" y2="243" stroke="#EF4444" stroke-width="3"
+                                    stroke-linecap="round" />
+                                <line x1="523" y1="217" x2="497" y2="243" stroke="#EF4444" stroke-width="3"
+                                    stroke-linecap="round" />
+                            </g>
+
+                            <!-- Bogotá -->
+                            <circle id="ring-bogota" cx="300" cy="110" r="19" fill="rgba(16,185,129,.15)"
+                                stroke="#10B981" stroke-width="1.6" filter="url(#glow-g)" />
+                            <circle cx="300" cy="110" r="11" fill="rgba(16,185,129,.35)" />
+                            <text x="300" y="114" text-anchor="middle" font-size="9" font-weight="700" fill="white"
+                                font-family="Inter">BOG</text>
+                            <g id="offmark-bogota" style="display:none">
+                                <line x1="289" y1="99" x2="311" y2="121" stroke="#EF4444" stroke-width="2.5"
+                                    stroke-linecap="round" />
+                                <line x1="311" y1="99" x2="289" y2="121" stroke="#EF4444" stroke-width="2.5"
+                                    stroke-linecap="round" />
+                            </g>
+
+                            <!-- Santiago -->
+                            <circle id="ring-santiago" cx="400" cy="360" r="19" fill="rgba(16,185,129,.15)"
+                                stroke="#10B981" stroke-width="1.6" filter="url(#glow-g)" />
+                            <circle cx="400" cy="360" r="11" fill="rgba(16,185,129,.35)" />
+                            <text x="400" y="364" text-anchor="middle" font-size="9" font-weight="700" fill="white"
+                                font-family="Inter">SCL</text>
+                            <g id="offmark-santiago" style="display:none">
+                                <line x1="389" y1="349" x2="411" y2="371" stroke="#EF4444" stroke-width="2.5"
+                                    stroke-linecap="round" />
+                                <line x1="411" y1="349" x2="389" y2="371" stroke="#EF4444" stroke-width="2.5"
+                                    stroke-linecap="round" />
+                            </g>
+
+                            <!-- CDMX -->
+                            <circle id="ring-cdmx" cx="110" cy=" 70" r="19" fill="rgba(16,185,129,.15)" stroke="#10B981"
+                                stroke-width="1.6" filter="url(#glow-g)" />
+                            <circle cx="110" cy="70" r="11" fill="rgba(16,185,129,.35)" />
+                            <text x="110" y="74" text-anchor="middle" font-size="9" font-weight="700" fill="white"
+                                font-family="Inter">MEX</text>
+                            <g id="offmark-cdmx" style="display:none">
+                                <line x1="99" y1="59" x2="121" y2="81" stroke="#EF4444" stroke-width="2.5"
+                                    stroke-linecap="round" />
+                                <line x1="121" y1="59" x2="99" y2="81" stroke="#EF4444" stroke-width="2.5"
+                                    stroke-linecap="round" />
+                            </g>
+
+                            <!-- Labels (below circles) -->
+                            <text x="510" y="262" text-anchor="middle" font-size="11" fill="#C4B5FD" font-family="Inter"
+                                font-weight="600">Lima</text>
+                            <text id="svg-role-lima" x="510" y="275" text-anchor="middle" font-size="8.5" fill="#4D148C"
+                                font-family="Inter">MAESTRO</text>
+
+                            <text x="300" y="140" text-anchor="middle" font-size="11" fill="#94A3B8"
+                                font-family="Inter">Bogotá</text>
+                            <text id="svg-role-bogota" x="300" y="152" text-anchor="middle" font-size="8.5"
+                                fill="#475569" font-family="Inter">RÉPLICA</text>
+
+                            <text x="400" y="390" text-anchor="middle" font-size="11" fill="#94A3B8"
+                                font-family="Inter">Santiago</text>
+                            <text id="svg-role-santiago" x="400" y="402" text-anchor="middle" font-size="8.5"
+                                fill="#475569" font-family="Inter">RÉPLICA</text>
+
+                            <text x="110" y="100" text-anchor="middle" font-size="11" fill="#94A3B8"
+                                font-family="Inter">Cd. México</text>
+                            <text id="svg-role-cdmx" x="110" y="112" text-anchor="middle" font-size="8.5" fill="#475569"
+                                font-family="Inter">RÉPLICA</text>
+
+                            <!-- Latency labels on main lines -->
+                            <text x="420" y="163" font-size="9" fill="rgba(96,165,250,.65)"
+                                font-family="JetBrains Mono">~18ms</text>
+                            <text x="468" y="307" font-size="9" fill="rgba(96,165,250,.65)"
+                                font-family="JetBrains Mono">~22ms</text>
+                            <text x="290" y="144" font-size="9" fill="rgba(96,165,250,.65)"
+                                font-family="JetBrains Mono">~31ms</text>
+                        </svg>
+
+                        <!-- HTML overlay cards (% positioned to match SVG viewBox) -->
+                        <!-- SVG: 760x420, node at (510,230) → 67.1%, 54.8% -->
+                        <!-- Card offsets: slightly right+up from node center -->
+
+                        <!-- Lima: cx=510 → 67.1%, cy=230 → 54.8% → card left=68.5%, top=43% -->
+                        <div id="card-lima" class="node-card master" style="left:70%;top:38%">
+                            <div style="font-size:.6rem;font-weight:800;color:#C4B5FD;letter-spacing:.1em">LIMA</div>
+                            <div style="margin:3px 0"><span id="nsl-lima" class="nsl nsl-online">ONLINE</span></div>
+                            <div class="node-metric">🌡 <span id="lima-temp">-2°C</span></div>
+                            <div class="node-metric">📦 <span id="lima-inv">12,480</span> envíos</div>
+                            <div class="node-metric"
+                                style="margin-top:3px;color:#6D28D9;font-weight:600;font-size:.58rem" id="role-lima">●
+                                MAESTRO PRINCIPAL</div>
+                        </div>
+
+                        <!-- Bogotá: cx=300 → 39.5%, cy=110 → 26.2% → card left=41%, top=12% -->
+                        <div id="card-bogota" class="node-card secondary" style="left:42%;top:8%">
+                            <div style="font-size:.6rem;font-weight:800;color:#6EE7B7;letter-spacing:.1em">BOGOTÁ</div>
+                            <div style="margin:3px 0"><span id="nsl-bogota" class="nsl nsl-online">ONLINE</span></div>
+                            <div class="node-metric">🌡 <span id="bogota-temp">-1°C</span></div>
+                            <div class="node-metric">📦 <span id="bogota-inv">8,342</span> envíos</div>
+                            <div class="node-metric" style="margin-top:3px;color:#10B981;font-size:.58rem"
+                                id="role-bogota">↻ Réplica Activa</div>
+                        </div>
+
+                        <!-- Santiago: cx=400 → 52.6%, cy=360 → 85.7% → card left=24%, top=72% -->
+                        <div id="card-santiago" class="node-card secondary" style="left:39%;top:78%">
+                            <div style="font-size:.6rem;font-weight:800;color:#6EE7B7;letter-spacing:.1em">SANTIAGO
+                            </div>
+                            <div style="margin:3px 0"><span id="nsl-santiago" class="nsl nsl-online">ONLINE</span></div>
+                            <div class="node-metric">🌡 <span id="santiago-temp">-3°C</span></div>
+                            <div class="node-metric">📦 <span id="santiago-inv">5,901</span> envíos</div>
+                            <div class="node-metric" style="margin-top:3px;color:#10B981;font-size:.58rem"
+                                id="role-santiago">↻ Réplica Activa</div>
+                        </div>
+
+                        <!-- CDMX: cx=110 → 14.5%, cy=70 → 16.7% → card left=16.5%, top=2% -->
+                        <div id="card-cdmx" class="node-card secondary" style="left:1.3%;top:6%">
+                            <div style="font-size:.6rem;font-weight:800;color:#6EE7B7;letter-spacing:.1em">CD. MÉXICO
+                            </div>
+                            <div style="margin:3px 0"><span id="nsl-cdmx" class="nsl nsl-online">ONLINE</span></div>
+                            <div class="node-metric">🌡 <span id="cdmx-temp">-1°C</span></div>
+                            <div class="node-metric">📦 <span id="cdmx-inv">6,225</span> envíos</div>
+                            <div class="node-metric" style="margin-top:3px;color:#10B981;font-size:.58rem"
+                                id="role-cdmx">↻ Réplica Activa</div>
+                        </div>
+                    </div><!-- /map-wrap -->
+                </div><!-- /map card -->
+            </div><!-- /left -->
+
+            <!-- RIGHT: CONTROLS -->
+            <div class="space-y-3">
+
+                <!-- Replication toggle -->
+                <div class="glass rounded-2xl p-4">
+                    <div class="section-label">Estrategia de Replicación</div>
+                    <div class="flex items-center justify-between mb-3">
+                        <div>
+                            <div style="font-size:.78rem;font-weight:600;color:#E2E8F0">Modo Síncrono</div>
+                            <div style="font-size:.62rem;color:#475569;margin-top:1px">Consistencia fuerte</div>
+                        </div>
+                        <label class="toggle-sw">
+                            <input type="checkbox" id="replicationToggle" onchange="onToggleReplication()">
+                            <span class="t-slider"></span>
+                        </label>
+                    </div>
+                    <div id="replInfo" class="rounded-lg p-3"
+                        style="background:rgba(77,20,140,.1);border:1px solid rgba(77,20,140,.2)">
+                        <div style="font-size:.68rem;font-weight:700;color:#A78BFA;margin-bottom:3px" id="replTitle">
+                            MODO ASÍNCRONO</div>
+                        <div style="font-size:.62rem;color:#64748B;line-height:1.5" id="replDesc">Baja latencia (~25ms).
+                            Réplica con ligero retraso. Riesgo de pérdida de datos ante fallos súbitos.</div>
+                    </div>
+                    <div class="mt-3 space-y-1.5">
+                        <div class="flex justify-between py-1.5" style="border-bottom:1px solid rgba(255,255,255,.05)">
+                            <span style="font-size:.68rem;color:#475569">Latencia base</span>
+                            <span id="cmpLat"
+                                style="font-size:.68rem;font-weight:600;color:#60A5FA;font-family:'JetBrains Mono'">~25ms
+                                ✓</span>
+                        </div>
+                        <div class="flex justify-between py-1.5" style="border-bottom:1px solid rgba(255,255,255,.05)">
+                            <span style="font-size:.68rem;color:#475569">Consistencia</span>
+                            <span id="cmpCons"
+                                style="font-size:.68rem;font-weight:600;color:#10B981;font-family:'JetBrains Mono'">Eventual</span>
+                        </div>
+                        <div class="flex justify-between py-1.5">
+                            <span style="font-size:.68rem;color:#475569">Riesgo pérdida</span>
+                            <span id="cmpRisk"
+                                style="font-size:.68rem;font-weight:600;color:#FBBF24;font-family:'JetBrains Mono'">Posible</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CHAOS ENGINE -->
+                <div class="glass rounded-2xl p-4 space-y-3">
+                    <div class="section-label">Motor de Caos — Seleccionar Nodo</div>
+
+                    <!-- Node selector grid -->
+                    <div class="grid grid-cols-2 gap-2" id="nodeSelectorGrid">
+                        <button id="sel-lima" class="sel-btn selected" onclick="selectTarget('lima')"
+                            title="Lima — Maestro Principal">
+                            <div style="font-size:.65rem;font-weight:700;color:#C4B5FD;margin-bottom:3px">LIMA</div>
+                            <div class="sel-status" id="ss-lima" style="font-size:.58rem;color:#94A3B8">MAESTRO</div>
+                        </button>
+                        <button id="sel-bogota" class="sel-btn" onclick="selectTarget('bogota')"
+                            title="Bogotá — Réplica Activa">
+                            <div style="font-size:.65rem;font-weight:700;color:#6EE7B7;margin-bottom:3px">BOGOTÁ</div>
+                            <div class="sel-status" id="ss-bogota" style="font-size:.58rem;color:#94A3B8">RÉPLICA</div>
+                        </button>
+                        <button id="sel-santiago" class="sel-btn" onclick="selectTarget('santiago')"
+                            title="Santiago — Réplica Activa">
+                            <div style="font-size:.65rem;font-weight:700;color:#6EE7B7;margin-bottom:3px">SANTIAGO</div>
+                            <div class="sel-status" id="ss-santiago" style="font-size:.58rem;color:#94A3B8">RÉPLICA
+                            </div>
+                        </button>
+                        <button id="sel-cdmx" class="sel-btn" onclick="selectTarget('cdmx')"
+                            title="Cd. México — Réplica Activa">
+                            <div style="font-size:.65rem;font-weight:700;color:#6EE7B7;margin-bottom:3px">CD. MÉX</div>
+                            <div class="sel-status" id="ss-cdmx" style="font-size:.58rem;color:#94A3B8">RÉPLICA</div>
+                        </button>
+                    </div>
+
+                    <button id="btnEmergency" class="btn-emergency" onclick="triggerNodeCrash()">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5">
+                            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                        </svg>
+                        SIMULAR CAÍDA: <span id="selectedNodeLabel">LIMA</span>
+                    </button>
+
+                    <button id="btnReset" class="btn-reset" onclick="resetSystem()" disabled>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5">
+                            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                            <path d="M3 3v5h5" />
+                        </svg>
+                        RESTAURAR SISTEMA (FAILBACK)
+                    </button>
+
+                    <div id="failoverStatus"
+                        style="display:none;border-radius:8px;padding:10px 12px;background:rgba(245,158,11,.1)">
+                        <div style="font-size:.68rem;font-weight:700" id="foStatusText">—</div>
+                    </div>
+                </div>
+
+                <!-- Load bars -->
+                <div class="glass rounded-2xl p-4">
+                    <div class="section-label">Carga por Nodo</div>
+                    <div class="space-y-2.5" id="loadBars">
+                        <div>
+                            <div class="flex justify-between mb-1">
+                                <span style="font-size:.68rem;color:#94A3B8">Lima</span>
+                                <span id="stat-lima"
+                                    style="font-size:.68rem;font-family:'JetBrains Mono';color:#C4B5FD">98%</span>
+                            </div>
+                            <div style="height:5px;background:rgba(255,255,255,.06);border-radius:3px">
+                                <div id="bar-lima"
+                                    style="height:100%;width:98%;background:linear-gradient(90deg,#4D148C,#818CF8);border-radius:3px;transition:width .6s,background .5s">
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between mb-1">
+                                <span style="font-size:.68rem;color:#94A3B8">Bogotá</span>
+                                <span id="stat-bogota"
+                                    style="font-size:.68rem;font-family:'JetBrains Mono';color:#10B981">87%</span>
+                            </div>
+                            <div style="height:5px;background:rgba(255,255,255,.06);border-radius:3px">
+                                <div id="bar-bogota"
+                                    style="height:100%;width:87%;background:linear-gradient(90deg,#059669,#10B981);border-radius:3px;transition:width .6s,background .5s">
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between mb-1">
+                                <span style="font-size:.68rem;color:#94A3B8">Santiago</span>
+                                <span id="stat-santiago"
+                                    style="font-size:.68rem;font-family:'JetBrains Mono';color:#10B981">79%</span>
+                            </div>
+                            <div style="height:5px;background:rgba(255,255,255,.06);border-radius:3px">
+                                <div id="bar-santiago"
+                                    style="height:100%;width:79%;background:linear-gradient(90deg,#059669,#10B981);border-radius:3px;transition:width .6s,background .5s">
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between mb-1">
+                                <span style="font-size:.68rem;color:#94A3B8">Cd. México</span>
+                                <span id="stat-cdmx"
+                                    style="font-size:.68rem;font-family:'JetBrains Mono';color:#10B981">83%</span>
+                            </div>
+                            <div style="height:5px;background:rgba(255,255,255,.06);border-radius:3px">
+                                <div id="bar-cdmx"
+                                    style="height:100%;width:83%;background:linear-gradient(90deg,#059669,#10B981);border-radius:3px;transition:width .6s,background .5s">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div><!-- /right -->
+        </div><!-- /main grid -->
+
+        <!-- CONSOLE LOG -->
+        <div class="glass rounded-2xl overflow-hidden">
+            <div class="flex items-center justify-between px-5 py-2.5"
+                style="border-bottom:1px solid rgba(255,255,255,.06)">
+                <div class="flex items-center gap-3">
+                    <div class="section-label" style="margin-bottom:0">Live Event Log</div>
+                    <div class="flex gap-1.5">
+                        <span
+                            style="width:8px;height:8px;background:#EF4444;border-radius:50%;display:inline-block"></span>
+                        <span
+                            style="width:8px;height:8px;background:#FBBF24;border-radius:50%;display:inline-block"></span>
+                        <span
+                            style="width:8px;height:8px;background:#10B981;border-radius:50%;display:inline-block"></span>
+                    </div>
+                    <span style="font-size:.62rem;color:var(--emerald);font-weight:600;letter-spacing:.1em">● EN
+                        VIVO</span>
+                </div>
+                <button class="btn-sm" onclick="clearLog()">Limpiar</button>
+            </div>
+            <div class="console-log" id="consoleLog"></div>
+        </div>
+
+    </main>
+
+    <script>
+        // =============================================================
+        //  CONFIGURATION
+        // =============================================================
+        const NODE_CFG = {
+            lima: { name: 'Lima', code: 'LIM', priority: 1, baseInv: 12480, baseLoad: 98, temp: '-2°C' },
+            bogota: { name: 'Bogotá', code: 'BOG', priority: 2, baseInv: 8342, baseLoad: 87, temp: '-1°C' },
+            santiago: { name: 'Santiago', code: 'SCL', priority: 3, baseInv: 5901, baseLoad: 79, temp: '-3°C' },
+            cdmx: { name: 'Cd. México', code: 'MEX', priority: 4, baseInv: 6225, baseLoad: 83, temp: '-1°C' },
+        };
+
+        // All edges between nodes
+        const EDGES = [
+            { id: 'lima-bogota', n1: 'lima', n2: 'bogota' },
+            { id: 'lima-santiago', n1: 'lima', n2: 'santiago' },
+            { id: 'lima-cdmx', n1: 'lima', n2: 'cdmx' },
+            { id: 'bogota-santiago', n1: 'bogota', n2: 'santiago' },
+            { id: 'bogota-cdmx', n1: 'bogota', n2: 'cdmx' },
+            { id: 'santiago-cdmx', n1: 'santiago', n2: 'cdmx' },
+        ];
+
+        const ELECTION_ORDER = ['lima', 'bogota', 'santiago', 'cdmx'];
+
+        // =============================================================
+        //  STATE
+        // =============================================================
+        let isSyncMode = false;
+        let masterNode = 'lima';
+        let selectedTarget = 'lima';
+        let crashLocked = false;
+        let logInterval = null;
+        let masterCrashHappened = false; // any master crash → async data loss
+
+        let nodeStatus = { lima: 'online', bogota: 'online', santiago: 'online', cdmx: 'online' };
+
+        // =============================================================
+        //  HELPERS
+        // =============================================================
+        const $ = id => document.getElementById(id);
+        const onlineNodes = () => Object.keys(nodeStatus).filter(n => nodeStatus[n] === 'online');
+        const offlineNodes = () => Object.keys(nodeStatus).filter(n => nodeStatus[n] === 'offline');
+        const delay = ms => new Promise(r => setTimeout(r, ms));
+        const getTime = () => new Date().toLocaleTimeString('es-PE', { hour12: false });
+        const shipId = () => '#' + (Math.floor(Math.random() * 9000) + 1000);
+        const rNode = () => NODE_CFG[onlineNodes()[Math.floor(Math.random() * onlineNodes().length)]]?.name || 'Lima';
+
+        setInterval(() => { $('sysClock').textContent = getTime(); }, 1000);
+        $('sysClock').textContent = getTime();
+
+        // =============================================================
+        //  METRICS COMPUTATION
+        // =============================================================
+        function computeMetrics() {
+            const offCount = offlineNodes().length;
+            if (offCount === 0) {
+                return { lat: isSyncMode ? 80 : 25, cons: isSyncMode ? 100 : 99.8, temp: 'OK', status: 'healthy' };
+            }
+            if (isSyncMode) {
+                const lat = 80 + offCount * 75 + (masterCrashHappened ? 45 : 15);
+                const status = offCount >= 3 ? 'critical' : 'degraded';
+                return { lat, cons: 100, temp: offCount >= 2 ? '⚠ Warn' : 'OK', status };
+            } else {
+                let cons = 99.8;
+                if (masterCrashHappened) cons -= 22;
+                cons -= offCount * 4.5;
+                cons = Math.max(cons, 32);
+                const lat = 25 + offCount * 10;
+                const status = cons < 65 ? 'critical' : 'degraded';
+                return { lat, cons, temp: masterCrashHappened || offCount >= 2 ? '⚠ Warn' : 'OK', status };
+            }
+        }
+
+        function applyMetrics() {
+            const m = computeMetrics();
+            const latColor = m.lat > (isSyncMode ? 150 : 45) ? '#FBBF24' : '#60A5FA';
+            const consColor = m.cons < 75 ? '#EF4444' : m.cons < 92 ? '#FBBF24' : '#10B981';
+            animateMetric('kpiLatency', Math.round(m.lat), latColor);
+            animateMetric('kpiConsistency', parseFloat(m.cons.toFixed(1)), consColor);
+            $('kpiTempText').textContent = m.temp;
+            $('kpiTempIcon').style.color = m.temp === 'OK' ? '#10B981' : '#FBBF24';
+            setGlobalStatus(m.status);
+        }
+
+        function animateMetric(id, target, color) {
+            const el = $(id);
+            el.style.color = color;
+            const start = parseFloat(el.textContent) || 0;
+            const diff = target - start;
+            const steps = 28;
+            let step = 0;
+            const iv = setInterval(() => {
+                step++;
+                const v = start + diff * (step / steps);
+                el.textContent = Number.isInteger(target) ? Math.round(v) : v.toFixed(1);
+                if (step >= steps) { el.textContent = Number.isInteger(target) ? target : target.toFixed(1); clearInterval(iv); }
+            }, 18);
+        }
+
+        function setGlobalStatus(status) {
+            const b = $('globalStatusBadge');
+            const t = $('globalStatusText');
+            b.className = 'status-badge badge-' + status;
+            b.innerHTML = '<span class="bdot pulse"></span><span>' +
+                ({ healthy: 'SALUDABLE', degraded: 'DEGRADADO', critical: 'CRÍTICO' }[status] || 'SALUDABLE') + '</span>';
+        }
+
+        function setKpiMaster(text, color) {
+            $('kpiMaster').textContent = text;
+            $('kpiMaster').style.color = color || '#A78BFA';
+        }
+
+        // =============================================================
+        //  ALERT BANNER
+        // =============================================================
+        function showAlert(type, html) {
+            const b = $('alertBanner');
+            b.className = 'alert-banner alert-' + type + ' show';
+            $('alertText').innerHTML = html;
+        }
+        function hideAlert() { $('alertBanner').className = 'alert-banner'; }
+
+        // =============================================================
+        //  SVG / VISUAL UPDATES
+        // =============================================================
+        function updateEdge(e) {
+            const line = $('line-' + e.id);
+            const pkt = $('pkt-' + e.id);
+            if (!line) return;
+
+            const n1on = nodeStatus[e.n1] === 'online';
+            const n2on = nodeStatus[e.n2] === 'online';
+
+            if (!n1on || !n2on) {
+                line.setAttribute('stroke', 'rgba(239,68,68,.14)');
+                line.setAttribute('stroke-dasharray', '3 10');
+                line.classList.remove('conn-active');
+                if (pkt) pkt.setAttribute('opacity', '0');
+            } else {
+                const involvesM = (e.n1 === masterNode || e.n2 === masterNode);
+                if (involvesM) {
+                    line.setAttribute('stroke', masterNode === 'lima' ? 'rgba(77,20,140,.8)' : 'rgba(245,158,11,.7)');
+                    line.setAttribute('stroke-dasharray', '6 4');
+                    line.classList.add('conn-active');
+                    if (pkt) { pkt.setAttribute('opacity', '1'); pkt.setAttribute('fill', masterNode === 'lima' ? '#10B981' : '#F59E0B'); }
+                } else {
+                    line.setAttribute('stroke', 'rgba(96,165,250,.28)');
+                    line.setAttribute('stroke-dasharray', '4 6');
+                    line.classList.add('conn-active');
+                    if (pkt) { pkt.setAttribute('opacity', '0.55'); pkt.setAttribute('fill', '#60A5FA'); }
+                }
+            }
+        }
+
+        function updateAllEdges() { EDGES.forEach(updateEdge); }
+
+        function updateNodeVisual(nodeId) {
+            const status = nodeStatus[nodeId];
+            const isMaster = nodeId === masterNode;
+
+            const ring = $('ring-' + nodeId);
+            const glowEl = $('glow-' + nodeId);
+            const offmark = $('offmark-' + nodeId);
+            const card = $('card-' + nodeId);
+            const nsl = $('nsl-' + nodeId);
+            const roleDiv = $('role-' + nodeId);
+            const svgRole = $('svg-role-' + nodeId);
+
+            if (status === 'offline') {
+                ring.setAttribute('stroke', '#EF4444');
+                ring.setAttribute('fill', 'rgba(239,68,68,.1)');
+                glowEl.setAttribute('fill', 'rgba(239,68,68,.08)');
+                offmark.style.display = 'block';
+                card.className = 'node-card offline';
+                nsl.textContent = 'OFFLINE'; nsl.className = 'nsl nsl-offline';
+                roleDiv.textContent = '✗ NO DISPONIBLE'; roleDiv.style.color = '#EF4444';
+                if (svgRole) { svgRole.textContent = 'OFFLINE'; svgRole.setAttribute('fill', '#EF4444'); }
+            } else if (isMaster && nodeId === 'lima') {
+                ring.setAttribute('stroke', '#4D148C');
+                ring.setAttribute('fill', 'rgba(77,20,140,.28)');
+                glowEl.setAttribute('fill', 'rgba(77,20,140,.12)');
+                offmark.style.display = 'none';
+                card.className = 'node-card master';
+                nsl.textContent = 'ONLINE'; nsl.className = 'nsl nsl-online';
+                roleDiv.textContent = '● MAESTRO PRINCIPAL'; roleDiv.style.color = '#6D28D9';
+                if (svgRole) { svgRole.textContent = 'MAESTRO'; svgRole.setAttribute('fill', '#4D148C'); }
+            } else if (isMaster) {
+                ring.setAttribute('stroke', '#F59E0B');
+                ring.setAttribute('fill', 'rgba(245,158,11,.15)');
+                glowEl.setAttribute('fill', 'rgba(245,158,11,.1)');
+                offmark.style.display = 'none';
+                card.className = 'node-card leader';
+                nsl.textContent = 'LÍDER'; nsl.className = 'nsl nsl-leader';
+                roleDiv.textContent = '★ LÍDER PROVISIONAL'; roleDiv.style.color = '#F59E0B';
+                if (svgRole) { svgRole.textContent = 'LÍDER ★'; svgRole.setAttribute('fill', '#F59E0B'); }
+            } else {
+                ring.setAttribute('stroke', '#10B981');
+                ring.setAttribute('fill', 'rgba(16,185,129,.15)');
+                glowEl.setAttribute('fill', 'rgba(16,185,129,.07)');
+                offmark.style.display = 'none';
+                card.className = 'node-card secondary';
+                nsl.textContent = 'ONLINE'; nsl.className = 'nsl nsl-online';
+                roleDiv.textContent = '↻ Réplica Activa'; roleDiv.style.color = '#10B981';
+                if (svgRole) { svgRole.textContent = 'RÉPLICA'; svgRole.setAttribute('fill', '#475569'); }
+            }
+        }
+
+        function updateAllNodes() { Object.keys(NODE_CFG).forEach(updateNodeVisual); }
+
+        function updateLoadBars() {
+            const offCount = offlineNodes().length;
+            for (const nodeId of Object.keys(NODE_CFG)) {
+                const cfg = NODE_CFG[nodeId];
+                const bar = $('bar-' + nodeId);
+                const stat = $('stat-' + nodeId);
+                if (nodeStatus[nodeId] === 'offline') {
+                    bar.style.width = '0%'; bar.style.background = '#EF4444';
+                    stat.textContent = '0%'; stat.style.color = '#EF4444';
+                } else {
+                    const isMaster = nodeId === masterNode;
+                    let load = cfg.baseLoad + (isMaster ? offCount * 9 : -(offCount * 3));
+                    load = Math.min(99, Math.max(30, load));
+                    bar.style.width = load + '%';
+                    if (isMaster) {
+                        bar.style.background = masterNode === 'lima'
+                            ? 'linear-gradient(90deg,#4D148C,#818CF8)'
+                            : 'linear-gradient(90deg,#92400E,#F59E0B)';
+                        stat.style.color = masterNode === 'lima' ? '#C4B5FD' : '#FDE68A';
+                    } else {
+                        bar.style.background = 'linear-gradient(90deg,#059669,#10B981)';
+                        stat.style.color = '#10B981';
+                    }
+                    stat.textContent = load + '%';
+                }
+            }
+        }
+
+        // =============================================================
+        //  NODE SELECTOR UI
+        // =============================================================
+        function selectTarget(nodeId) {
+            if (nodeStatus[nodeId] === 'offline') return;
+            selectedTarget = nodeId;
+            for (const id of Object.keys(NODE_CFG)) {
+                const btn = $('sel-' + id);
+                if (!btn) continue;
+                btn.classList.toggle('selected', id === nodeId);
+            }
+            $('selectedNodeLabel').textContent = NODE_CFG[nodeId].name.toUpperCase();
+            refreshCrashBtn();
+        }
+
+        function refreshCrashBtn() {
+            const btn = $('btnEmergency');
+            const isOff = nodeStatus[selectedTarget] === 'offline';
+            const isLastNode = onlineNodes().length === 1 && nodeStatus[selectedTarget] === 'online';
+            btn.disabled = crashLocked || isOff || isLastNode;
+        }
+
+        function refreshSelectorBtns() {
+            for (const nodeId of Object.keys(NODE_CFG)) {
+                const btn = $('sel-' + nodeId);
+                const ss = $('ss-' + nodeId);
+                if (!btn) continue;
+                if (nodeStatus[nodeId] === 'offline') {
+                    btn.disabled = true;
+                    btn.classList.add('offline-btn');
+                    btn.classList.remove('selected');
+                    if (ss) { ss.textContent = 'OFFLINE'; ss.style.color = '#EF4444'; }
+                } else {
+                    btn.disabled = false;
+                    btn.classList.remove('offline-btn');
+                    const isMaster = nodeId === masterNode;
+                    if (ss) {
+                        ss.textContent = isMaster ? (nodeId === 'lima' ? 'MAESTRO' : 'LÍDER') : 'RÉPLICA';
+                        ss.style.color = isMaster ? (nodeId === 'lima' ? '#C4B5FD' : '#FDE68A') : '#94A3B8';
+                    }
+                }
+            }
+            // If selected is now offline, pick a new target
+            if (nodeStatus[selectedTarget] === 'offline') {
+                const next = onlineNodes()[0];
+                if (next) selectTarget(next);
+            }
+            refreshCrashBtn();
+        }
+
+        // =============================================================
+        //  LOG SYSTEM
+        // =============================================================
+        function addLog(msg, type = 'info') {
+            const log = $('consoleLog');
+            const d = document.createElement('div');
+            d.innerHTML = `[${getTime()}] <span class="log-${type}">${msg}</span>`;
+            log.appendChild(d);
+            log.scrollTop = log.scrollHeight;
+        }
+        function addRawLog(html) {
+            const log = $('consoleLog');
+            const d = document.createElement('div');
+            d.innerHTML = html;
+            log.appendChild(d);
+            log.scrollTop = log.scrollHeight;
+        }
+        function clearLog() { $('consoleLog').innerHTML = ''; }
+
+        const normalLogFns = [
+            () => `<span class="log-success">Envío ${shipId()} registrado en ${rNode()}</span>`,
+            () => `<span class="log-info">Sincronizando inventario ${rNode()} ↔ ${masterNode === 'lima' ? 'Lima' : NODE_CFG[masterNode].name}... <span class="log-success">OK</span></span>`,
+            () => `<span class="log-info">Heartbeat recibido desde ${rNode()}: latencia ${Math.floor(Math.random() * 15) + 12}ms</span>`,
+            () => `<span class="log-success">Paquete refrigerado ${shipId()} | Temp: ${Math.floor(Math.random() * 2) - 2}°C | Estado: OK</span>`,
+            () => `<span class="log-info">Réplica confirmada en ${rNode()} | Lag: ${Math.floor(Math.random() * 18) + 8}ms</span>`,
+            () => `<span class="log-success">Checkpoint de consistencia — Todos los nodos activos sincronizados</span>`,
+            () => `<span class="log-info">Envío ${shipId()} actualizado: EN_RUTA → ENTREGADO (${rNode()})</span>`,
+        ];
+
+        function startNormalLogStream() {
+            if (logInterval) clearInterval(logInterval);
+            logInterval = setInterval(() => {
+                if (offlineNodes().length === 0) {
+                    addRawLog(`[${getTime()}] ` + normalLogFns[Math.floor(Math.random() * normalLogFns.length)]());
+                }
+            }, 1900);
+        }
+
+        function startDegradedLogStream() {
+            if (logInterval) clearInterval(logInterval);
+            logInterval = setInterval(() => {
+                const offList = offlineNodes();
+                if (offList.length === 0) return;
+                const mName = NODE_CFG[masterNode].name;
+                const msgs = [
+                    `<span class="log-warn">🔄 Heartbeat: ${NODE_CFG[offList[Math.floor(Math.random() * offList.length)]].name} — SIN RESPUESTA</span>`,
+                    `<span class="log-success">Envío ${shipId()} procesado vía ${mName} (+${Math.floor(Math.random() * 15) + 5}ms overhead)</span>`,
+                    `<span class="log-warn">↔ Lag entre ${rNode()} ↔ ${mName}: ${Math.floor(Math.random() * 35) + 12}ms</span>`,
+                    `<span class="log-info">${mName} gestionando escrituras — carga: ${Math.floor(Math.random() * 20) + 75}%</span>`,
+                ];
+                addRawLog(`[${getTime()}] ` + msgs[Math.floor(Math.random() * msgs.length)]);
+            }, 2300);
+        }
+
+        // =============================================================
+        //  TOGGLE REPLICATION
+        // =============================================================
+        function onToggleReplication() {
+            isSyncMode = $('replicationToggle').checked;
+            if (isSyncMode) {
+                $('replTitle').textContent = 'MODO SÍNCRONO'; $('replTitle').style.color = '#10B981';
+                $('replInfo').style.background = 'rgba(16,185,129,.09)'; $('replInfo').style.borderColor = 'rgba(16,185,129,.22)';
+                $('replDesc').textContent = 'Alta consistencia. Escritura confirmada en todos los nodos antes de responder. Latencia mayor (~80ms).';
+                $('cmpLat').textContent = '~80ms ↑'; $('cmpLat').style.color = '#FBBF24';
+                $('cmpCons').textContent = 'Fuerte (100%)'; $('cmpCons').style.color = '#10B981';
+                $('cmpRisk').textContent = 'Ninguna'; $('cmpRisk').style.color = '#10B981';
+                $('replStratBadge').textContent = '🔒 SÍNCRONA'; $('replStratBadge').style.color = '#6EE7B7'; $('replStratBadge').style.borderColor = 'rgba(16,185,129,.4)';
+                addLog('Replicación → SÍNCRONO. Consistencia fuerte activada.', 'warn');
+            } else {
+                $('replTitle').textContent = 'MODO ASÍNCRONO'; $('replTitle').style.color = '#A78BFA';
+                $('replInfo').style.background = 'rgba(77,20,140,.1)'; $('replInfo').style.borderColor = 'rgba(77,20,140,.2)';
+                $('replDesc').textContent = 'Baja latencia (~25ms). Réplica con ligero retraso. Riesgo de pérdida de datos ante fallos súbitos.';
+                $('cmpLat').textContent = '~25ms ✓'; $('cmpLat').style.color = '#60A5FA';
+                $('cmpCons').textContent = 'Eventual'; $('cmpCons').style.color = '#10B981';
+                $('cmpRisk').textContent = 'Posible'; $('cmpRisk').style.color = '#FBBF24';
+                $('replStratBadge').textContent = '⚡ ASÍNCRONA'; $('replStratBadge').style.color = '#C4B5FD'; $('replStratBadge').style.borderColor = 'rgba(77,20,140,.4)';
+                addLog('Replicación → ASÍNCRONO. Latencia optimizada.', 'info');
+            }
+            // Recalculate if nodes are already down
+            if (offlineNodes().length > 0) applyMetrics();
+            else animateMetric('kpiLatency', isSyncMode ? 80 : 25, isSyncMode ? '#FBBF24' : '#60A5FA');
+        }
+
+        // =============================================================
+        //  MAIN CRASH LOGIC
+        // =============================================================
+        async function triggerNodeCrash() {
+            if (crashLocked) return;
+            const nodeId = selectedTarget;
+            if (nodeStatus[nodeId] === 'offline') return;
+            if (onlineNodes().length <= 1) return;
+
+            crashLocked = true;
+            $('btnEmergency').disabled = true;
+            $('replicationToggle').disabled = true;
+            if (logInterval) clearInterval(logInterval);
+
+            const wasMaster = (nodeId === masterNode);
+            const cfg = NODE_CFG[nodeId];
+
+            // Mark offline immediately
+            nodeStatus[nodeId] = 'offline';
+            updateNodeVisual(nodeId);
+            refreshSelectorBtns();
+
+            addRawLog(`[${getTime()}] <span class="log-error">⚠ ALERTA: Nodo ${cfg.name} no responde — detectando caída...</span>`);
+
+            if (wasMaster) {
+                await runMasterFailover(nodeId);
+            } else {
+                await runSecondaryFailure(nodeId);
+            }
+
+            updateAllEdges();
+            updateLoadBars();
+            applyMetrics();
+            updateFailoverStatusUI();
+
+            $('btnReset').disabled = false;
+            crashLocked = false;
+            refreshCrashBtn();
+            startDegradedLogStream();
+        }
+
+        async function runMasterFailover(crashedId) {
+            masterCrashHappened = true;
+            const cfg = NODE_CFG[crashedId];
+
+            $('failoverOverlay').classList.add('show');
+            $('foMsg').textContent = 'Seleccionando nuevo líder...';
+
+            await delay(550);
+            addRawLog(`[${getTime()}] <span class="log-error">⚠ TCP timeout en ${cfg.name} — reintento 1/3 fallido</span>`);
+            await delay(500);
+            addRawLog(`[${getTime()}] <span class="log-error">⚠ Reintento 2/3 fallido — declarando ${cfg.name} CAÍDO</span>`);
+            await delay(450);
+            addRawLog(`[${getTime()}] <span class="log-warn">Iniciando elección de líder (algoritmo Raft)...</span>`);
+
+            const candidates = ELECTION_ORDER.filter(n => n !== crashedId && nodeStatus[n] === 'online');
+            const newLeader = candidates[0] || null;
+
+            await delay(800);
+            $('foMsg').textContent = newLeader ? `Promoviendo ${NODE_CFG[newLeader]?.name}...` : 'Sin candidatos disponibles';
+            await delay(500);
+
+            $('failoverOverlay').classList.remove('show');
+
+            if (!newLeader) {
+                addRawLog(`[${getTime()}] <span class="log-error">🔴 CRÍTICO: No hay nodos disponibles para el liderazgo</span>`);
+                setGlobalStatus('critical');
+                return;
+            }
+
+            addRawLog(`[${getTime()}] <span class="log-warn">🔄 Candidato: ${NODE_CFG[newLeader].name} (prioridad ${NODE_CFG[newLeader].priority})</span>`);
+
+            masterNode = newLeader;
+            updateAllNodes();
+            setKpiMaster(NODE_CFG[newLeader].name + ' ★', '#F59E0B');
+
+            await delay(300);
+            addRawLog(`[${getTime()}] <span class="log-success">✓ Failover completado — ${NODE_CFG[newLeader].name} es el LÍDER</span>`);
+            refreshSelectorBtns();
+
+            // Show mode alert
+            const m = computeMetrics();
+            if (isSyncMode) {
+                showAlert('info',
+                    `<div><strong style="color:#6EE7B7">✓ MODO SÍNCRONO — Consistencia garantizada.</strong><br>` +
+                    `${NODE_CFG[newLeader].name} asumió el liderazgo. <strong>Cero pérdida de datos</strong>. ` +
+                    `Latencia transitoria elevada: <strong>~${Math.round(m.lat)}ms</strong> mientras se rebalancea la carga.</div>`);
+                await delay(500);
+                addRawLog(`[${getTime()}] <span class="log-success">✓ SYNC: Cero pérdida de datos — transacciones comprometidas.</span>`);
+                await delay(400);
+                addRawLog(`[${getTime()}] <span class="log-warn"> Latencia elevada: ~${Math.round(m.lat)}ms (re-sincronización activa)</span>`);
+            } else {
+                const lossMin = Math.floor(Math.random() * 14) + 8;
+                showAlert('warning',
+                    `<div><strong style="color:#FDE68A">⚠ MODO ASÍNCRONO — Pérdida de datos detectada.</strong><br>` +
+                    `~${lossMin} min de historial de ${cfg.name} inaccesibles. Envíos en buffer no confirmados. ` +
+                    `Consistencia: <strong>${m.cons.toFixed(1)}%</strong>. Se requiere reconciliación manual.</div>`);
+                await delay(500);
+                addRawLog(`[${getTime()}] <span class="log-error">⚠ ASYNC: ~${lossMin} min de datos en tránsito perdidos en buffer de ${cfg.name}</span>`);
+                await delay(400);
+                addRawLog(`[${getTime()}] <span class="log-error">⚠ Envíos ${shipId()}, ${shipId()}, ${shipId()} — estado DESCONOCIDO</span>`);
+            }
+        }
+
+        async function runSecondaryFailure(crashedId) {
+            const cfg = NODE_CFG[crashedId];
+            await delay(350);
+            addRawLog(`[${getTime()}] <span class="log-warn">⚠ Nodo secundario ${cfg.name} marcado OFFLINE</span>`);
+            await delay(400);
+            addRawLog(`[${getTime()}] <span class="log-info">↔ Redirigiendo tráfico de ${cfg.name} a nodos activos...</span>`);
+            await delay(400);
+            addRawLog(`[${getTime()}] <span class="log-success">✓ Failover secundario completado — servicio no interrumpido</span>`);
+
+            const m = computeMetrics();
+            if (isSyncMode) {
+                showAlert('info',
+                    `<div><strong style="color:#6EE7B7">SYNC — Nodo secundario ${cfg.name} fuera de línea.</strong><br>` +
+                    `Maestro: <strong>${NODE_CFG[masterNode].name}</strong> continúa operativo. Consistencia: <strong>100%</strong>. ` +
+                    `Sin pérdida de datos. Latencia: <strong>~${Math.round(m.lat)}ms</strong>.</div>`);
+            } else {
+                showAlert('warning',
+                    `<div><strong style="color:#FDE68A">ASYNC — Nodo ${cfg.name} fuera de línea.</strong><br>` +
+                    `Consistencia reducida a <strong>${m.cons.toFixed(1)}%</strong>. ` +
+                    `${offlineNodes().length} nodo(s) inactivo(s). Riesgo de inconsistencia incrementado en réplicas.</div>`);
+            }
+        }
+
+        function updateFailoverStatusUI() {
+            const offList = offlineNodes();
+            const s = $('failoverStatus');
+            const t = $('foStatusText');
+            if (offList.length === 0) { s.style.display = 'none'; return; }
+            s.style.display = 'block';
+            const leaderName = NODE_CFG[masterNode].name;
+            const offNames = offList.map(n => NODE_CFG[n].name).join(', ');
+            if (masterCrashHappened && !isSyncMode) {
+                t.textContent = `⚠ Líder: ${leaderName} | Caídos: ${offNames} | Reconciliación pendiente`;
+                t.style.color = '#FBBF24'; s.style.background = 'rgba(245,158,11,.1)';
+            } else {
+                t.textContent = `✓ Líder: ${leaderName} | Caídos: ${offNames} | Datos: Íntegros`;
+                t.style.color = '#10B981'; s.style.background = 'rgba(16,185,129,.1)';
+            }
+        }
+
+        // =============================================================
+        //  RESET SYSTEM
+        // =============================================================
+        async function resetSystem() {
+            if (offlineNodes().length === 0) return;
+            $('btnReset').disabled = true;
+            crashLocked = true;
+
+            const offList = [...offlineNodes()];
+            for (const nodeId of offList) {
+                addLog(`Restaurando nodo ${NODE_CFG[nodeId].name}...`, 'warn');
+                await delay(320);
+                nodeStatus[nodeId] = 'online';
+            }
+
+            masterNode = 'lima';
+            masterCrashHappened = false;
+
+            await delay(350);
+            addLog('Lima restaurada como MAESTRO PRINCIPAL. Sincronización delta en curso...', 'info');
+            await delay(350);
+            addLog('Sistema completamente restaurado. Todas las réplicas sincronizadas.', 'success');
+
+            updateAllNodes();
+            updateAllEdges();
+            updateLoadBars();
+            applyMetrics();
+            setKpiMaster('Lima', '#A78BFA');
+            hideAlert();
+            $('failoverStatus').style.display = 'none';
+            refreshSelectorBtns();
+            selectTarget('lima');
+
+            crashLocked = false;
+            $('replicationToggle').disabled = false;
+            refreshCrashBtn();
+
+            // reset already re-enabled reset btn but no nodes are down now
+            $('btnReset').disabled = true;
+            startNormalLogStream();
+        }
+
+        // =============================================================
+        //  LIVE JITTER
+        // =============================================================
+        setInterval(() => {
+            if (offlineNodes().length > 0) return;
+            const baseLat = isSyncMode ? 80 : 25;
+            const baseCons = isSyncMode ? 100 : 99.8;
+            const jLat = baseLat + (Math.random() * 6 - 3);
+            const jCons = baseCons - (Math.random() * .25);
+            $('kpiLatency').textContent = Math.round(jLat);
+            $('kpiConsistency').textContent = jCons.toFixed(1);
+            // Jitter inventories
+            const d = () => Math.floor(Math.random() * 20 - 10);
+            $('lima-inv').textContent = (12480 + d()).toLocaleString();
+            $('bogota-inv').textContent = (8342 + d()).toLocaleString();
+            $('santiago-inv').textContent = (5901 + d()).toLocaleString();
+            $('cdmx-inv').textContent = (6225 + d()).toLocaleString();
+        }, 2600);
+
+        // =============================================================
+        //  INIT
+        // =============================================================
+        function init() {
+            addLog('Sistema inicializado — Arquitectura multi-región activa (4 nodos)', 'success');
+            addLog('Lima configurada como MAESTRO PRINCIPAL', 'info');
+            addLog('Replicación ASÍNCRONA activa. Lag estimado: 12ms', 'info');
+            addLog('Monitoreo de temperatura cadena de frío: NOMINAL', 'success');
+            startNormalLogStream();
+        }
+
+        init();
+    </script>
+</body>
+
+</html>
